@@ -1,0 +1,30 @@
+name: Sürümü yayınla
+
+on:
+  workflow_dispatch:
+    inputs:
+      etiket:
+        description: Taslak sürümün etiketi (ör. v0.1.1)
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  yayinla:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      ETIKET: ${{ inputs.etiket }}
+    steps:
+      - name: Etiketi denetle
+        run: |
+          [[ "$ETIKET" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+      - name: Taslağı yayına çevir
+        run: |
+          mkdir dosyalar
+          gh release download "$ETIKET" --dir dosyalar
+          gh release view "$ETIKET" --json body --jq .body > notlar.txt
+          gh release delete "$ETIKET" --yes
+          gh release create "$ETIKET" dosyalar/* --title "$ETIKET" --notes-file notlar.txt --latest

@@ -4,8 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       etiket:
-        description: Taslak sürümün etiketi (ör. v0.1.1)
+        description: Sürüm etiketi (ör. v0.1.4)
         required: true
+      kanal:
+        description: "deneme: yalnızca deneme bilgisayarı alır; herkes: sürüm herkese açılır"
+        required: true
+        default: deneme
 
 permissions:
   contents: write
@@ -17,14 +21,21 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       ETIKET: ${{ inputs.etiket }}
+      KANAL: ${{ inputs.kanal }}
     steps:
-      - name: Etiketi denetle
+      - name: Girdileri denetle
         run: |
           [[ "$ETIKET" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
-      - name: Taslağı yayına çevir
+          [[ "$KANAL" == "deneme" || "$KANAL" == "herkes" ]]
+      - name: Deneme kanalına koy
+        if: inputs.kanal == 'deneme'
         run: |
           mkdir dosyalar
           gh release download "$ETIKET" --dir dosyalar
-          gh release view "$ETIKET" --json body --jq .body > notlar.txt
           gh release delete "$ETIKET" --yes
-          gh release create "$ETIKET" dosyalar/* --title "$ETIKET" --notes-file notlar.txt --latest
+          gh release create "$ETIKET" dosyalar/* --title "$ETIKET" --notes "" --prerelease
+          gh release view deneme-kanali >/dev/null 2>&1 || gh release create deneme-kanali --title "Deneme kanalı" --notes "" --prerelease
+          gh release upload deneme-kanali dosyalar/latest.json --clobber
+      - name: Herkese aç
+        if: inputs.kanal == 'herkes'
+        run: gh release edit "$ETIKET" --prerelease=false --latest
